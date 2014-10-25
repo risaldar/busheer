@@ -1,0 +1,20 @@
+Busheer
+-------
+
+this lists supported tags by hdoc.py
+
+    @file           : name of file
+    @description    : description of file
+    @in             : in parameters in arguments list
+    @out            : out parameters in arguments list
+    @returns        : return value of function
+    @function       : name of function
+    @macro          : macro define
+    @enum           : enumeration
+    @struct         : structures
+    @typedef        : type defines
+    @var            : global variables
+    @abbr.          : abbreviations
+    @module         : module name
+    @note           : random notes in a file
+    
