@@ -1,0 +1,2 @@
+1) HTML + CSS template
+2) Headings and Paragraphs should be named starting with double ##.
