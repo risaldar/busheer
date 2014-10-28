@@ -1,8 +1,13 @@
 Busheer
 -------
 
-this lists supported tags by hdoc.py
+> this lists supported tags by hdoc.py
 
+    @author         : name of author
+    @date           : date of changes in source 
+    @comment        : description of changes in source 
+    @design         : brief description of design of module
+    @bug            : open bugs in source
     @file           : name of file
     @description    : description of file
     @in             : in parameters in arguments list
@@ -17,4 +22,13 @@ this lists supported tags by hdoc.py
     @abbr.          : abbreviations
     @module         : module name
     @note           : random notes in a file
-    
+    @project        : optional name of project, if not found in any file there 
+                      must be only one module define in all headers else print 
+                      error
+> need to find change log in two revisions of same module based on information 
+  provide with different tags.
+  the change log will provide information based on 
+    - added comments in file history
+    - removed a_tags
+    - added a_tags
+    - modified a_tags
