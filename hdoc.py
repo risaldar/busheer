@@ -34,36 +34,11 @@
     @abbr.          : abbreviations
     @module         : module name
     @note           : random notes in a file
- > Find all header files in current source folder.
- > Find D_tags in each line of each file
- > Get D_tag_comment and D_tag_value, please remember that some D_tag_value may 
-   be present without its respective D_tag_comment or a D_tag_comment 
-   may be followed by multiple D_tag_values from which only first one will map 
-   to given D_tag_comment and other one will be populated as if it did not had 
-   its D_tag_comment, we need to address such problems,   
- > for each file header a variable will be generated as follows.
-   a_tags_file = 
-   {
-       #KEY                  : #VALUE AS LIST  
-       |                       |  
-       '<a_tag_name_string>' : [ (a_tag_comment,a_tag_value) ]
-                                  | 
-                                  #TUPLE 
-   }
- > initially a_tags_file will only contain tags. As we will parse header file 
-   lines, their values and comments will be added.
- > at the end a separate function will be required to generate Home page for 
-   navigation. 
- > Ideally if there exists some dependency in a_tags then we need to provide 
-   some tool to easily go to base type definition. e.g. in global variable 
-   uint32 status; we need to provide link to uint32 definition within definition 
-   of status. this is only possible if we exactly know within tag what is 
-   primary value and what is base type, For time being let's just forget about 
-   this requirement.
- >   
- @todo : 
- > find D_tags in source header files and get their values, sort them and 
-   populate in HTML templates.
+
+@todo:
+> allow multiple values @in, @out, @param
+> get values for @macro, @typedef, @var, @enum from source code. if wording written in front of 
+these tags is to be considered as description then tag validation function will be updated.
 
 '''
 
@@ -102,7 +77,218 @@ import argparse
 #used for arguments
 import sys
 
+#used for checking for empty lines in input files
+import string
 
+class a_tag_class:
+    def __init__(self,a_name):
+        # string for a_tag
+        self.a_name=a_name;
+        #list of values
+        self.a_tag_values=[];
+        
+        #lists of dependent values
+        self.a_tag_descriptions=[];
+        self.a_tag_ins=[];
+        self.a_tag_outs=[];
+        self.a_tag_params=[];
+        self.a_tag_returns=[];
+        self.a_tag_comments=[];
+        self.put_index=-1;
+ 
+    def a_tag_add(self, tag_name, value):
+        #print('adding '+tag_name+' to owner '+self.a_name+' with value '+ value);
+        if tag_name == self.a_name:
+            self.a_tag_values.append(value);
+            self.a_tag_descriptions.append('');
+            self.a_tag_ins.append('');
+            self.a_tag_outs.append('');
+            self.a_tag_params.append('');
+            self.a_tag_returns.append('');
+            self.a_tag_comments.append('');
+            self.put_index = self.put_index+1;
+        elif tag_name == '@description':
+            self.a_tag_descriptions[self.put_index] = value;
+        elif tag_name == '@in':
+            self.a_tag_ins[self.put_index] == value;
+        elif tag_name == '@out':
+            self.a_tag_outs[self.put_index] == value;
+        elif tag_name == '@param':
+            self.a_tag_params[self.put_index] == value;
+        elif tag_name == '@returns':
+            self.a_tag_returns[self.put_index] == value;
+        elif tag_name == '@comment':
+            self.a_tag_comments[self.put_index] == value;
+        else :
+            print('invalid tag_name='+tag_name+' with value='+value);
+ 
+    def a_tag_validate(self, previous_a_tag_names):
+        #validate post-requisites, return false if error is found
+        if (len(previous_a_tag_names) > 0) and \
+           (previous_a_tag_names[-1] == '@date'):
+            if self.a_name != '@comment':
+                return False, None;
+        
+        #validate pre-requisites, return true if correct else fall through to 
+        #false
+        if self.a_name == '@author':
+            return (True, self.a_name);
+        elif self.a_name == '@date':
+            return True, self.a_name;
+        elif self.a_name == '@comment':
+            if previous_a_tag_names[-1] == '@date':
+                return True, '@date';
+        elif self.a_name == '@design':
+            return True, self.a_name;
+        elif self.a_name == '@bug':
+            return True, self.a_name;
+        elif self.a_name == '@file':
+            return True, self.a_name;
+        elif self.a_name == '@description':
+            if previous_a_tag_names[-1] == '@bug'         or  \
+               previous_a_tag_names[-1] == '@file'        or  \
+               previous_a_tag_names[-1] == '@function'    or  \
+               previous_a_tag_names[-1] == '@macro'       or  \
+               previous_a_tag_names[-1] == '@enum'        or  \
+               previous_a_tag_names[-1] == '@struct'      or  \
+               previous_a_tag_names[-1] == '@typedef'     or  \
+               previous_a_tag_names[-1] == '@var'         or  \
+               previous_a_tag_names[-1] == '@module'      or  \
+               previous_a_tag_names[-1] == '@project':
+                return True, previous_a_tag_names[-1];
+        elif self.a_name == '@in':
+            if previous_a_tag_names[-1] == '@out'         or  \
+               previous_a_tag_names[-1] == '@returns'     or  \
+              (previous_a_tag_names[-2] == '@function'    and \
+               previous_a_tag_names[-1] == '@description'):
+                return True, '@function';
+        elif self.a_name == '@out':
+            if previous_a_tag_names[-1] == '@in'          or  \
+               previous_a_tag_names[-1] == '@returns'     or  \
+              (previous_a_tag_names[-2] == '@function'    and \
+               previous_a_tag_names[-1] == '@description'):
+                return True, '@function';
+        elif self.a_name == '@param':
+            if previous_a_tag_names[-1] == '@returns'     or  \
+              (previous_a_tag_names[-2] == '@function'    and \
+               previous_a_tag_names[-1] == '@description'):
+                return True, '@function';
+        elif self.a_name == '@returns':
+            if previous_a_tag_names[-1] == '@in'          or  \
+               previous_a_tag_names[-1] == '@out'         or  \
+               previous_a_tag_names[-1] == '@param'       or  \
+               previous_a_tag_names[-1] == '@returns'     or  \
+              (previous_a_tag_names[-2] == '@function'    and \
+               previous_a_tag_names[-1] == '@description'):
+                return True, '@function';
+        elif self.a_name == '@function':
+            return True, self.a_name;
+        elif self.a_name == '@macro':
+            return True, self.a_name;
+        elif self.a_name == '@enum':
+            return True, self.a_name;
+        elif self.a_name == '@struct':
+            return True, self.a_name;
+        elif self.a_name == '@typedef':
+            return True, self.a_name;
+        elif self.a_name == '@var':
+            return True, self.a_name;
+        elif self.a_name == '@abbr.':
+            return True, self.a_name;
+        elif self.a_name == '@module':
+            return True, self.a_name;
+        elif self.a_name == '@note':
+            return True, self.a_name;       
+        elif self.a_name == '@project':
+            return True, self.a_name;
+        
+        return False, None;
+class a_file_class:
+    def __init__(self,a_name):
+        #list of source lines in file
+        self.a_lines=[];
+        #list of a_tag_class objects
+        self.a_tags=[];
+        for a_tag_name in D_tags:
+            self.a_tags.append(a_tag_class(a_tag_name));
+        #name of file
+        self.a_name=a_name;
+
+    def a_lines_parser(self):
+        f = open(self.a_name,'r');
+        for line in f.readlines():
+            self.a_lines.append(line);
+        f.close();
+        return;
+
+    def a_tags_parser(self):
+        tag_running = False;
+        #tag=;
+        #owner_tag=None;
+        previous_tag_names=[];
+        
+        f = open(self.a_name,'r');
+        for line in f.readlines():
+            name, index = self.a_line_validate(line);
+            if index > 0:
+                #new tag found
+                tag_found = a_tag_class(name);
+                ret, owner_tag_name = tag_found.a_tag_validate(previous_tag_names);
+                if ret == True:
+                    previous_tag_names.append(name);
+                    if tag_running == True:
+                        owner_tag.a_tag_add(tag.a_name, tag_value);
+                    else:
+                        tag_running = True;
+                    tag = tag_found;
+                    for a_tag in self.a_tags:
+                        if owner_tag_name == a_tag.a_name:
+                            owner_tag = a_tag;
+                            break;
+                    index = line.find(':');
+                    tag_value = line[index+2:-1];
+                    
+                else:
+                    print('\nUnexpected tag found in file '+ \
+                        self.a_name+ \
+                        '\nTraceback:\n'+ \
+                        line);
+                    exit(0);
+            else:
+                index = line.find('*/');
+                if index > 0:
+                    if tag_running == True:
+                        owner_tag.a_tag_add(tag.a_name, tag_value);
+                        tag_running = False;
+                        
+                if tag_running == True:
+                    index = line.find('*');
+                    if line[index+1:-1].isspace() or (len(line[index+1:-1]) == 0):
+                        owner_tag.a_tag_add(tag.a_name, tag_value);
+                        tag_running = False;
+                    else:
+                        tag_value = tag_value + line[index+2:-1];
+                    
+    def a_line_validate(self, line):
+        tag_found = False;
+        tag_name = '';
+        tag_index = 0;
+        for a_name in D_tags:
+            index = line.find(a_name);
+            if index > 0:
+                if tag_found == True:
+                    print('\n\nMultiple tags found in line.\nTraceback:\n' + \
+                        line);
+                    exit(0);
+                tag_found = True;
+                tag_name = a_name;
+                tag_index = index;
+        return tag_name, tag_index;    
+            
+                        
+        f.close();
+        return;
+    
 def main(argv):
     print('\n:=Project Busheer=:\n\n\n');
     #create an argument parser object
@@ -113,32 +299,22 @@ def main(argv):
     );
     ns = parser.parse_args();
     
-    #dictionary for all headers and their documentation
-    project_sources = {};
+    #list for all headers and their documentation
+    project_sources = [];
     for file in ns.headers:
-        project_sources[file] = a_lines_parser(file);
-    
-    project_docs = {};
-    for file in ns.headers:
-        project_docs[file] = a_tags_parser(file);
+        print('\n-- processing '+file+'\n');
+        a_file = a_file_class(file);
+        a_file.a_lines_parser();
+        a_file.a_tags_parser();
+        project_sources.append( a_file );
     
     #generate HOME for project.
     
-    print('\n\nDone\n\n');
+    print('\n\n-- Done\n\n');
 
     
-def a_lines_parser(file):
-    print('\n -- processing ' + file + '\n');
-    a_file_text = [];
-    f = open(file,'r');
-    for line in f.readlines():
-        a_file_text.append(line);
-    f.close();
-    return a_file_text;
 
-def a_tags_parser(file):
-    TODO this function::::
-    return file;
+
     '''
         # get Documentation
         a_tags_file_file = copy.deepcopy(D_tags_file);

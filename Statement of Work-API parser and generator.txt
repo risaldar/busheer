@@ -12,6 +12,7 @@ Busheer
     @description    : description of file
     @in             : in parameters in arguments list
     @out            : out parameters in arguments list
+    @param          : parameters in arguments list, direction not specified
     @returns        : return value of function
     @function       : name of function
     @macro          : macro define

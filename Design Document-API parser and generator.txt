@@ -1,0 +1,36 @@
+DESIGN
+------
+> we need to declare dependency between different tags because some tags can't 
+appear without their prerequisites.  
+> whenever a tag is found we need to check for its prerequisites. 
+> maximum dependency depth will determine how many previous_a_tags we need to 
+keep track of. tag validation will check for prerequisites in previosu_a_tags 
+list.
+--------------------------------------------------------------------------------
+   a_tag        |   dependency
+--------------------------------------------------------------------------------  
+ | @author      | 
+ | @date        | @comment (special case as post-requisite)
+ | @comment     | @date
+ | @design      |
+ | @bug         |
+ | @file        |
+ | @description | @bug,@file,@function,@macro,@enum,@struct,@typedef,@var,
+ |              | @module,@project
+ | @in          | @function+@description,@out,@returns,
+ | @out         | @function+@description,@in,@returns,
+ | @param       | @function+@description,@returns,
+ | @returns     | @function+@description,@in,@out,@returns,@param
+ | @function    |
+ | @macro       |
+ | @enum        |
+ | @struct      |
+ | @typedef     |
+ | @var         |
+ | @abbr.       |
+ | @module      |
+ | @note        |
+ | @project     |
+
+> if an empty line is found while a tag is still running then tag value is closed. This is true for 
+all lines expect for line in which that tag is found.
